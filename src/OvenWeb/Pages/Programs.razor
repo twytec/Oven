@@ -1,0 +1,233 @@
+﻿@page "/programs"
+
+@inject OvenWeb.Data.OvenProgramService _program
+@inject OvenWeb.Data.OvenSettingsService _settings
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Program</label>
+                    <select class="form-control" @onchange="SelChanged">
+                        <option value="-1">New</option>
+                        @foreach (var item in _program.Programs)
+                        {
+                            <option value="@item.Id">@item.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" class="form-control" @bind="_pro.Name" />
+                    <p class="form-text text-danger">@_nameError</p>
+                </div>
+
+                <p class="text-center">
+                    <strong>Time:</strong> How long should the temperature be maintained? Enter 0 for infinity.
+                    <br />
+                    <strong>Temp:</strong> Temperature. Enter -1 to quit the program.
+                    <br />
+                    <strong>Relays:</strong> Number of heating elements to use.
+                </p>
+
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Temp</th>
+                                <th>Relays</th>
+                                <th style="text-align: right;">#</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _pro.Items)
+                            {
+                            <tr>
+                                <td>
+                                    <input type="time" min="1" step="1" class="form-control" @bind="item.Time" />
+                                </td>
+                                <td>
+                                    <input type="number" min="1" step="1" class="form-control" @bind="item.Temperature" />
+                                </td>
+                                <td>
+                                    <input type="number" min="1" step="1" max="@_settings.OvenSettings.RelayPins.Length" class="form-control" @bind="item.Relays" />
+                                </td>
+                                <td style="text-align: right;">
+                                    <div class="btn-group" role="group" aria-label="Basic example">
+                                        <button type="button" class="btn btn-secondary" @onclick="(() => ItemUp(item.Id))">
+                                            <span class="oi oi-arrow-top" />
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" @onclick="(() => ItemDown(item.Id))">
+                                            <span class="oi oi-arrow-bottom" />
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" @onclick="(() => ItemRemove(item.Id))">
+                                            <span class="oi oi-trash" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            }
+                            <tr>
+                                <td colspan="4" style="text-align: center;">
+                                    <button type="button" @onclick="AddItemToProgram" class="btn btn-secondary">Add item</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <button type="button" @onclick="Save" class="btn btn-primary btn-block">Save</button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" @onclick="Remove" class="btn btn-secondary btn-block">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private string _nameError;
+    OvenWeb.Data.OvenProgram _pro = new Data.OvenProgram() { Id = -1, Items = new List<Data.OvenProgramItem>() };
+
+    void ClearProgram()
+    {
+        _pro.Id = -1;
+        _pro.Name = "";
+        _pro.Items.Clear();
+    }
+
+    void SelChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int r))
+        {
+            if (r == -1)
+            {
+                ClearProgram();
+            }
+            else
+            {
+                var p = _program.Programs.FirstOrDefault(a => a.Id == r);
+                _pro.Id = r;
+                _pro.Name = p.Name;
+                _pro.Items.Clear();
+                _pro.Items.AddRange(p.Items);
+            }
+        }
+    }
+
+    void AddItemToProgram()
+    {
+        _pro.Items.Add(new Data.OvenProgramItem() { Id = _pro.Items.Count, Relays = _settings.OvenSettings.RelayPins.Length });
+        this.StateHasChanged();
+    }
+
+    void ItemUp(int id)
+    {
+        if (id != 0)
+        {
+            var i1 = _pro.Items[id];
+            var i2 = _pro.Items[id - 1];
+            i1.Id--;
+            i2.Id++;
+
+            _pro.Items = _pro.Items.OrderBy(a => a.Id).ToList();
+
+            this.StateHasChanged();
+        }
+    }
+
+    void ItemDown(int id)
+    {
+        if (id + 1 != _pro.Items.Count)
+        {
+            var i1 = _pro.Items[id];
+            var i2 = _pro.Items[id + 1];
+            i1.Id++;
+            i2.Id--;
+
+            _pro.Items = _pro.Items.OrderBy(a => a.Id).ToList();
+
+            this.StateHasChanged();
+        }
+    }
+
+    void ItemRemove(int id)
+    {
+        _pro.Items.RemoveAt(id);
+        for (int i = 0; i < _pro.Items.Count; i++)
+        {
+            _pro.Items[i].Id = i;
+        }
+    }
+
+    void Save()
+    {
+        if (string.IsNullOrWhiteSpace(_pro.Name))
+        {
+            _nameError = "Enter a name";
+            return;
+        }
+
+        OvenWeb.Data.OvenProgram p = null;
+
+        if (_pro.Id == -1)
+        {
+            p = new OvenWeb.Data.OvenProgram() { Items = new List<Data.OvenProgramItem>() };
+
+            if (_program.Programs.Count > 0)
+            {
+                p.Id = _program.Programs.LastOrDefault().Id++;
+            }
+
+            _program.Programs.Add(p);
+        }
+        else
+        {
+            p = _program.Programs.FirstOrDefault(a => a.Id == _pro.Id);
+            if (p == null)
+            {
+                p = new OvenWeb.Data.OvenProgram() { Items = new List<Data.OvenProgramItem>() };
+
+                if (_program.Programs.Count > 0)
+                    p.Id = _program.Programs.LastOrDefault().Id++;
+            }
+            else
+            {
+                p.Items.Clear();
+            }
+        }
+
+        p.Name = _pro.Name;
+        foreach (var item in _pro.Items)
+        {
+            item.TimeString = $"{item.Time.Hour:00}:{item.Time.Minute:00}:{item.Time.Second:00}";
+
+            p.Items.Add(item);
+
+            if (item.Temperature == -1 || item.Time.TimeOfDay == TimeSpan.Zero)
+                break;
+        }
+        _program.Save();
+
+        ClearProgram();
+    }
+
+    void Remove()
+    {
+        var p = _program.Programs.FirstOrDefault(a => a.Id == _pro.Id);
+        if(p != null)
+        {
+            _program.Programs.Remove(p);
+            _program.Save();
+            ClearProgram();
+        }
+    }
+}

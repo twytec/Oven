@@ -1,0 +1,129 @@
+﻿@page "/settings"
+@inject OvenWeb.Data.OvenSettingsService _settings
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+
+                <h5 class="text-center">
+                    Temperature
+                </h5>
+
+                <div class="form-group">
+                    <label>Temperature in</label>
+                    <select class="form-control" @bind="_settings.OvenSettings.TemperatureIn">
+                        <option value="0">Celsius</option>
+                        <option value="1">Fahrenheit</option>
+                        <option value="2">Kelvin</option>
+                    </select>
+                </div>
+
+                <br />
+
+                <h5 class="text-center">
+                    Heating phases
+                </h5>
+                <p class="text-center">
+                    The app has 2 phases.
+                    <br />
+                    In the first phase, permanent warming is carried out.
+                    <br />
+                    In the second phase, a short warming is carried out.
+                </p>
+
+                <br />
+
+                <div class="form-group">
+                    <label>Temperature difference of the second phase. Desired temperature - value = second phase</label>
+                    <input type="number" min="0" max="100" step="1" class="form-control" @bind="_settings.OvenSettings.HeatPhase2" />
+                    <small class="form-text text-muted">Enter 0 to use only first phase</small>
+                </div>
+                <div class="form-group">
+                    <label>Heating duration in second</label>
+                    <input type="number" min="1" max="100" step="1" class="form-control" @bind="_settings.OvenSettings.HeatDuration" />
+                </div>
+                <div class="form-group">
+                    <label>Heating pause in seconds</label>
+                    <input type="number" min="1" max="100" step="1" class="form-control" @bind="_settings.OvenSettings.HeatWait" />
+                </div>
+
+                <br />
+
+                <h5 class="text-center">
+                    Heater
+                </h5>
+
+                <div class="form-group">
+                    <label>Relay pins</label>
+                    <input type="text" class="form-control" @bind="_relayPins" />
+                    <small class="form-text text-muted">4, 14</small>
+                </div>
+
+                <br />
+
+                <h5 class="text-center">
+                    Thermoelement Max6675
+                </h5>
+
+                <div class="form-group">
+                    <label>SPI BusId</label>
+                    <input type="number" min="0" step="1" class="form-control" @bind="_settings.OvenSettings.SpiConnectionSettings.BusId" />
+                </div>
+                <div class="form-group">
+                    <label>SPI ChipSelectLine</label>
+                    <input type="number" min="0" step="1" class="form-control" @bind="_settings.OvenSettings.SpiConnectionSettings.ChipSelectLine" />
+                </div>
+                <div class="form-group">
+                    <label>SPI ClockFrequency</label>
+                    <input type="number" min="0" step="1" class="form-control" @bind="_settings.OvenSettings.SpiConnectionSettings.ClockFrequency" />
+                </div>
+                <div class="form-group">
+                    <label>SPI DataBitLength</label>
+                    <input type="number" min="0" step="1" class="form-control" @bind="_settings.OvenSettings.SpiConnectionSettings.DataBitLength" />
+                </div>
+                <div class="form-group">
+                    <label>SPI Mode</label>
+                    <input type="number" min="0" max="3" step="1" class="form-control" @bind="_spiMode" />
+                </div>
+                <div class="form-group">
+                    <label>SPI DataFlow</label>
+                    <input type="number" min="0" max="1" step="1" class="form-control" @bind="_spiDataFlow" />
+                </div>
+                <button type="button" @onclick="Save" class="btn btn-primary btn-block">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    string _relayPins = "";
+    int _spiMode = 0;
+    int _spiDataFlow = 0;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        _relayPins = string.Join(",", _settings.OvenSettings.RelayPins);
+        _spiMode = (int)_settings.OvenSettings.SpiConnectionSettings.Mode;
+        _spiDataFlow = (int)_settings.OvenSettings.SpiConnectionSettings.DataFlow;
+    }
+
+    void Save()
+    {
+        var p = _relayPins.Split(',');
+        List<int> pl = new List<int>();
+        foreach (var item in p)
+        {
+            if (int.TryParse(item.Trim(), out int r))
+                pl.Add(r);
+        }
+        _settings.OvenSettings.RelayPins = pl.ToArray();
+        _settings.OvenSettings.SpiConnectionSettings.Mode = (System.Device.Spi.SpiMode)Enum.ToObject(typeof(System.Device.Spi.SpiMode), _spiMode);
+        _settings.OvenSettings.SpiConnectionSettings.DataFlow = (System.Device.Spi.DataFlow)Enum.ToObject(typeof(System.Device.Spi.DataFlow), _spiDataFlow);
+
+        _settings.Save();
+    }
+}

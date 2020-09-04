@@ -1,0 +1,145 @@
+﻿@page "/"
+@inject OvenWeb.Data.OvenService _oven
+@inject OvenWeb.Data.OvenProgramService _program
+@inject OvenWeb.Data.OvenSettingsService _settings
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <p class="text-center" style="font-size: 5vh;">
+                    @string.Format("{0:N2}", _oven.CurrentTemperature) @_tempIn
+                </p>
+
+                <br />
+
+                @if (_oven.IsWorked)
+                {
+                    <h3 class="text-center">Program: @_oven.CurrentOvenProgram.Name - @_oven.Time</h3>
+
+                    <br />
+                    <br />
+
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Temp °C</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _oven.CurrentOvenProgram.Items)
+                            {
+                                string t = "Infinity";
+                                if (item.Time.TimeOfDay != TimeSpan.Zero)
+                                    t = item.TimeString;
+
+                                string activ = "";
+                                if (_oven.CurrentOvenProgram.CurrentItemId == item.Id)
+                                    activ = "table-primary";
+
+                                <tr class="@activ">
+                                    <td>@t</td>
+                                    <td>@item.Temperature</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <br />
+                    <br />
+
+                    <button type="button" @onclick="Stop" class="btn btn-danger btn-lg btn-block">Stop</button>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Temperature</label>
+                        <input type="number" min="50" step="1" class="form-control" @bind="_temperature" />
+                    </div>
+                    <button type="button" @onclick="Start" class="btn btn-primary btn-block">Start</button>
+
+                    <br />
+                    <br />
+
+                    <div class="form-group">
+                        <label>Program</label>
+                        <select class="form-control" @bind="_programId">
+                            @foreach (var item in _program.Programs)
+                            {
+                                <option value="@item.Id">@item.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="button" @onclick="StartProgram" class="btn btn-primary btn-block">Start program</button>
+
+                    <br />
+                    <br />
+
+                    <div class="form-group">
+                        <label>Seconds</label>
+                        <input type="number" min="1" step="1" class="form-control" @bind="_seconds" />
+                    </div>
+                    <button type="button" @onclick="SecondLoop" class="btn btn-secondary btn-block">Start second heat loop</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private int _temperature = 0;
+    private int _seconds = 1;
+    private int _programId = 0;
+    private string _tempIn = "°C";
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+
+        if (firstRender)
+        {
+            if (_settings.OvenSettings.TemperatureIn == OvenWeb.Data.OvenSettings.Fahrenheit)
+                _tempIn = "°F";
+            else if (_settings.OvenSettings.TemperatureIn == OvenWeb.Data.OvenSettings.Kelvin)
+                _tempIn = "°K";
+
+            Loop();
+        }
+    }
+
+    async void Loop()
+    {
+        while (true)
+        {
+            this.StateHasChanged();
+            await Task.Delay(500);
+        }
+    }
+
+    void Start()
+    {
+        if (_temperature > 50)
+            _oven.Start(_temperature);
+    }
+
+    void StartProgram()
+    {
+        var p = _program.Programs.FirstOrDefault(a => a.Id == _programId);
+        if (p != null)
+        {
+            _oven.StartProgram(p);
+        }
+    }
+
+    void SecondLoop()
+    {
+        _oven.StartSecondsProgram(_seconds);
+    }
+
+    void Stop()
+    {
+        _oven.Stop();
+    }
+}
